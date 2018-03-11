@@ -148,6 +148,18 @@ hev_task_system_get_context (void)
 #endif
 }
 
+void *
+hev_task_system_get_stack (void)
+{
+	return hev_task_system_get_context ()->stack;
+}
+
+unsigned int
+hev_task_system_get_stack_size (void)
+{
+	return hev_task_system_get_context ()->stack_size;
+}
+
 #ifdef ENABLE_PTHREAD
 static void
 pthread_key_creator (void)

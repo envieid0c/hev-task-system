@@ -49,5 +49,8 @@ void hev_task_system_kill_current_task (void);
 
 HevTaskSystemContext * hev_task_system_get_context (void);
 
+void * hev_task_system_get_stack (void);
+unsigned int hev_task_system_get_stack_size (void);
+
 #endif /* __HEV_TASK_SYSTEM_PRIVATE_H__ */
 

@@ -91,8 +91,16 @@ void
 hev_task_system_run_new_task (HevTask *task)
 {
 	HevTaskSystemContext *ctx = hev_task_system_get_context ();
+	HevTask *current_task = ctx->current_task;
 
+	if (task->stack_pages) {
+		/* clear shared stack */
+		mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
+	}
+
+	ctx->current_task = task;
 	hev_task_execute (task, hev_task_executer);
+	ctx->current_task = current_task;
 
 	hev_task_system_append_task (ctx, task);
 	ctx->total_task_count ++;

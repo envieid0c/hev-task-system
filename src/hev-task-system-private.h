@@ -16,6 +16,7 @@
 #include "hev-task-private.h"
 #include "hev-task-system.h"
 #include "hev-task-timer-manager.h"
+#include "hev-task-stack-allocator.h"
 
 #define HEV_TASK_RUN_SCHEDULER	HEV_TASK_YIELD_COUNT
 #define PRIORITY_COUNT (HEV_TASK_PRIORITY_MAX - HEV_TASK_PRIORITY_MIN + 1)
@@ -29,6 +30,10 @@ struct _HevTaskSystemContext
 	unsigned int running_tasks_bitmap;
 
 	HevTaskTimerManager *timer_manager;
+	HevTaskStackAllocator *stack_allocator;
+
+	void *stack;
+	unsigned int stack_size;
 
 	HevTask *current_task;
 	HevTask *running_tasks[PRIORITY_COUNT];

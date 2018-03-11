@@ -13,6 +13,7 @@
 #include <setjmp.h>
 
 #include "hev-task.h"
+#include "hev-task-stack-allocator.h"
 
 typedef struct _HevTaskSchedEntity HevTaskSchedEntity;
 
@@ -33,11 +34,11 @@ struct _HevTask
 	HevTaskSchedEntity sched_entity;
 
 	void *stack;
+	HevTaskStackPage **stack_pages;
 
 	int ref_count;
 	int priority;
 	int next_priority;
-	int stack_size;
 	HevTaskState state;
 
 	jmp_buf context;

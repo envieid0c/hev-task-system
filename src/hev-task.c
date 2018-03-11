@@ -7,7 +7,6 @@
  ============================================================================
  */
 
-#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <errno.h>
@@ -20,10 +19,6 @@
 #include "hev-task-system-private.h"
 #include "hev-memory-allocator.h"
 
-#define STACK_OVERFLOW_DETECTION_TAG	(0xdeadbeefu)
-
-#define HEV_TASK_STACK_SIZE	(64 * 1024)
-
 #define ALIGN_DOWN(addr, align) \
 	((addr) & ~((typeof (addr)) align - 1))
 
@@ -31,7 +26,6 @@ HevTask *
 hev_task_new (int stack_size)
 {
 	HevTask *self;
-	uintptr_t stack_addr;
 
 	self = hev_malloc0 (sizeof (HevTask));
 	if (!self)
@@ -40,21 +34,35 @@ hev_task_new (int stack_size)
 	self->ref_count = 1;
 	self->next_priority = HEV_TASK_PRIORITY_LOW;
 
-	if (stack_size == -1)
-		stack_size = HEV_TASK_STACK_SIZE;
+	if (stack_size == -1) {
+		HevTaskSystemContext *ctx;
+		unsigned int page_size, page_count;
 
-	self->stack = hev_malloc0 (stack_size);
-	if (!self->stack) {
-		hev_free (self);
-		return NULL;
+		ctx = hev_task_system_get_context ();
+		stack_size = hev_task_system_get_stack_size ();
+		page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
+		page_count = stack_size / page_size;
+
+		self->stack = hev_task_system_get_stack ();
+		self->stack_top = self->stack + stack_size;
+		self->stack_pages = hev_malloc0 (sizeof (HevTaskStackPage *) * page_count);
+		if (!self->stack_pages) {
+			hev_free (self);
+			return NULL;
+		}
+	} else {
+		uintptr_t stack_addr;
+
+		self->stack = hev_malloc0 (stack_size);
+		if (!self->stack) {
+			hev_free (self);
+			return NULL;
+		}
+
+		stack_addr = (uintptr_t) (self->stack + stack_size);
+		self->stack_top = (void *) ALIGN_DOWN (stack_addr, 16);
 	}
-#ifdef ENABLE_STACK_OVERFLOW_DETECTION
-	*(unsigned int *) self->stack = STACK_OVERFLOW_DETECTION_TAG;
-#endif
 
-	stack_addr = (uintptr_t) (self->stack + stack_size);
-	self->stack_top = (void *) ALIGN_DOWN (stack_addr, 16);
-	self->stack_size = stack_size;
 	self->sched_entity.task = self;
 
 	return self;
@@ -75,10 +83,27 @@ hev_task_unref (HevTask *self)
 	if (self->ref_count)
 		return;
 
-#ifdef ENABLE_STACK_OVERFLOW_DETECTION
-	assert (*(unsigned int *) self->stack == STACK_OVERFLOW_DETECTION_TAG);
-#endif
-	hev_free (self->stack);
+	if (self->stack_pages) {
+		HevTaskSystemContext *ctx;
+		unsigned int i, stack_size, page_size, page_count;
+
+		ctx = hev_task_system_get_context ();
+		stack_size = hev_task_system_get_stack_size ();
+		page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
+		page_count = stack_size / page_size;
+
+		for (i=0; i<page_count; i++) {
+			HevTaskStackPage *page = self->stack_pages[i];
+
+			if (!page)
+				continue;
+
+			hev_task_stack_allocator_free (ctx->stack_allocator, page);
+		}
+		hev_free (self->stack_pages);
+	} else {
+		hev_free (self->stack);
+	}
 	hev_free (self);
 }
 

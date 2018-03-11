@@ -13,6 +13,7 @@
 #endif
 
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/epoll.h>
 
 #include "hev-task-system.h"
@@ -58,6 +59,11 @@ hev_task_system_schedule (HevTaskYieldType type)
 
 	/* pick a task */
 	hev_task_system_pick_current_task (ctx);
+
+	if (ctx->current_task->stack_pages) {
+		/* clear shared stack */
+		mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
+	}
 
 	/* switch to task */
 	longjmp (ctx->current_task->context, 1);

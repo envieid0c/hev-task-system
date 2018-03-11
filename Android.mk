@@ -27,6 +27,7 @@ LOCAL_SRC_FILES := \
 	src/hev-task-system.c \
 	src/hev-task-system-schedule.c \
 	src/hev-task-stack-allocator.c \
+	src/hev-task-stack-fault-handler.c \
 	src/hev-task-timer-manager.c
 include $(LOCAL_PATH)/configs.mk
 LOCAL_CFLAGS += $(CONFIG_CFLAGS)

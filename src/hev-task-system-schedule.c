@@ -21,6 +21,8 @@
 #include "hev-task-private.h"
 #include "hev-task-executer.h"
 
+static inline void hev_task_system_clear_shared_stack (HevTaskSystemContext *ctx);
+static inline void hev_task_system_remap_current_task_rsp (HevTaskSystemContext *ctx);
 static inline void hev_task_system_wakeup_task_with_context (HevTaskSystemContext *ctx,
 			HevTask *task);
 static inline void hev_task_system_run_new_task_with_context (HevTaskSystemContext *ctx);
@@ -64,18 +66,8 @@ hev_task_system_schedule (HevTaskYieldType type)
 	/* pick a task */
 	hev_task_system_pick_current_task (ctx);
 
-	if (ctx->current_task->stack_pages) {
-		HevTaskStackPage *rsp;
-
-		/* clear shared stack */
-		mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
-
-		rsp = ctx->current_task->recently_stack_page;
-		if (rsp) {
-			/* remap recently stack page */
-			hev_task_stack_page_remap (rsp);
-		}
-	}
+	if (ctx->current_task->stack_pages)
+		hev_task_system_remap_current_task_rsp (ctx);
 
 	/* switch to task */
 	longjmp (ctx->current_task->context, 1);
@@ -125,8 +117,7 @@ hev_task_system_run_new_task (HevTask *task)
 	if (task->stack_pages) {
 		ctx->current_task = current_task;
 
-		/* clear shared stack */
-		mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
+		hev_task_system_clear_shared_stack (ctx);
 	}
 
 	hev_task_system_append_task (ctx, task);
@@ -141,6 +132,26 @@ hev_task_system_kill_current_task (void)
 	/* NOTE: remove current task in kernel context, because current
 	 * task stack may be freed. */
 	longjmp (ctx->kernel_context, 3);
+}
+
+static inline void
+hev_task_system_clear_shared_stack (HevTaskSystemContext *ctx)
+{
+	mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
+}
+
+static inline void
+hev_task_system_remap_current_task_rsp (HevTaskSystemContext *ctx)
+{
+	HevTaskStackPage *rsp;
+
+	hev_task_system_clear_shared_stack (ctx);
+
+	rsp = ctx->current_task->recently_stack_page;
+	if (!rsp)
+		return;
+
+	hev_task_stack_page_remap (rsp);
 }
 
 static inline void
@@ -162,26 +173,17 @@ hev_task_system_run_new_task_with_context (HevTaskSystemContext *ctx)
 {
 	HevTask *task = ctx->new_task;
 	HevTask *current_task = ctx->current_task;
-	HevTaskStackPage *rsp;
 
-	/* clear shared stack */
-	mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
+	hev_task_system_clear_shared_stack (ctx);
 
 	ctx->current_task = task;
 	hev_task_execute (task, hev_task_executer);
 	ctx->current_task = current_task;
 
+	hev_task_system_remap_current_task_rsp (ctx);
+
 	hev_task_system_append_task (ctx, task);
 	ctx->total_task_count ++;
-
-	/* clear shared stack */
-	mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
-
-	rsp = current_task->recently_stack_page;
-	if (rsp) {
-		/* remap recently stack page */
-		hev_task_stack_page_remap (rsp);
-	}
 
 	/* resume to task */
 	longjmp (current_task->context, 1);

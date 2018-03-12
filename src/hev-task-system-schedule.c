@@ -23,6 +23,7 @@
 
 static inline void hev_task_system_wakeup_task_with_context (HevTaskSystemContext *ctx,
 			HevTask *task);
+static inline void hev_task_system_run_new_task_with_context (HevTaskSystemContext *ctx);
 static inline void hev_task_system_append_task (HevTaskSystemContext *ctx,
 			HevTask *task);
 static inline void hev_task_system_remove_current_task (HevTaskSystemContext *ctx,
@@ -44,9 +45,12 @@ hev_task_system_schedule (HevTaskYieldType type)
 			hev_task_system_reappend_current_task (ctx);
 			break;
 		case 2:
-			hev_task_system_remove_current_task (ctx, HEV_TASK_STOPPED);
+			hev_task_system_run_new_task_with_context (ctx);
 			break;
 		case 3:
+			hev_task_system_remove_current_task (ctx, HEV_TASK_STOPPED);
+			break;
+		case 4:
 			hev_task_system_remove_current_task (ctx, HEV_TASK_WAITING);
 			break;
 		}
@@ -83,7 +87,7 @@ save_task:
 		return; /* resume to task context */
 
 	if (type == HEV_TASK_WAITIO)
-		longjmp (ctx->kernel_context, 3);
+		longjmp (ctx->kernel_context, 4);
 
 	/* resume to kernel context */
 	longjmp (ctx->kernel_context, 1);
@@ -101,14 +105,29 @@ hev_task_system_run_new_task (HevTask *task)
 	HevTaskSystemContext *ctx = hev_task_system_get_context ();
 	HevTask *current_task = ctx->current_task;
 
+	/* NOTE: If new task uses stack pages, then run new task in
+	 * kernel context, because we can't access current task stack
+	 * after unmapped. */
+	if (task->stack_pages && current_task) {
+		/* save current task context */
+		if (setjmp (current_task->context))
+			return;
+
+		ctx->new_task = task;
+		longjmp (ctx->kernel_context, 2);
+	}
+
+	if (task->stack_pages)
+		ctx->current_task = task;
+
+	hev_task_execute (task, hev_task_executer);
+
 	if (task->stack_pages) {
+		ctx->current_task = current_task;
+
 		/* clear shared stack */
 		mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
 	}
-
-	ctx->current_task = task;
-	hev_task_execute (task, hev_task_executer);
-	ctx->current_task = current_task;
 
 	hev_task_system_append_task (ctx, task);
 	ctx->total_task_count ++;
@@ -121,7 +140,7 @@ hev_task_system_kill_current_task (void)
 
 	/* NOTE: remove current task in kernel context, because current
 	 * task stack may be freed. */
-	longjmp (ctx->kernel_context, 2);
+	longjmp (ctx->kernel_context, 3);
 }
 
 static inline void
@@ -136,6 +155,36 @@ hev_task_system_wakeup_task_with_context (HevTaskSystemContext *ctx, HevTask *ta
 	if (!ctx)
 		ctx = hev_task_system_get_context ();
 	hev_task_system_append_task (ctx, task);
+}
+
+static inline void
+hev_task_system_run_new_task_with_context (HevTaskSystemContext *ctx)
+{
+	HevTask *task = ctx->new_task;
+	HevTask *current_task = ctx->current_task;
+	HevTaskStackPage *rsp;
+
+	/* clear shared stack */
+	mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
+
+	ctx->current_task = task;
+	hev_task_execute (task, hev_task_executer);
+	ctx->current_task = current_task;
+
+	hev_task_system_append_task (ctx, task);
+	ctx->total_task_count ++;
+
+	/* clear shared stack */
+	mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
+
+	rsp = current_task->recently_stack_page;
+	if (rsp) {
+		/* remap recently stack page */
+		hev_task_stack_page_remap (rsp);
+	}
+
+	/* resume to task */
+	longjmp (current_task->context, 1);
 }
 
 static inline void

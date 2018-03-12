@@ -35,6 +35,7 @@ struct _HevTaskSystemContext
 	void *stack;
 	unsigned int stack_size;
 
+	HevTask *new_task;
 	HevTask *current_task;
 	HevTask *running_tasks[PRIORITY_COUNT];
 	HevTask *running_tasks_tail[PRIORITY_COUNT];

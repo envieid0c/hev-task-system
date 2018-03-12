@@ -96,6 +96,7 @@ hev_task_stack_allocator_alloc (HevTaskStackAllocator *self)
 		return NULL;
 
 	page->owner = self;
+	page->map_addr = NULL;
 
 	next_offset = self->allocated_offset + self->page_size;
 	if (ftruncate (self->mem_fd, next_offset) == -1) {
@@ -135,5 +136,21 @@ int
 hev_task_stack_page_unmap (HevTaskStackPage *page)
 {
 	return munmap (page->map_addr, page->owner->page_size);
+}
+
+int
+hev_task_stack_page_remap (HevTaskStackPage *page)
+{
+	void *maddr;
+
+	if (!page->map_addr)
+		return -1;
+
+	maddr = mmap (page->map_addr, page->owner->page_size, PROT_READ | PROT_WRITE,
+				MAP_SHARED | MAP_FIXED, page->owner->mem_fd, page->offset);
+	if (maddr != page->map_addr)
+		return -1;
+
+	return 0;
 }
 

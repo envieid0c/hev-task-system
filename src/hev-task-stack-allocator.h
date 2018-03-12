@@ -23,6 +23,7 @@ void hev_task_stack_allocator_free (HevTaskStackAllocator *self, HevTaskStackPag
 
 int hev_task_stack_page_map (HevTaskStackPage *page, void *addr);
 int hev_task_stack_page_unmap (HevTaskStackPage *page);
+int hev_task_stack_page_remap (HevTaskStackPage *page);
 
 #endif /* __HEV_TASK_STACK_ALLOCATOR_H__ */
 

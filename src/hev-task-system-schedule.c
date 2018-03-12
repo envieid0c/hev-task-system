@@ -61,8 +61,16 @@ hev_task_system_schedule (HevTaskYieldType type)
 	hev_task_system_pick_current_task (ctx);
 
 	if (ctx->current_task->stack_pages) {
+		HevTaskStackPage *rsp;
+
 		/* clear shared stack */
 		mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
+
+		rsp = ctx->current_task->recently_stack_page;
+		if (rsp) {
+			/* remap recently stack page */
+			hev_task_stack_page_remap (rsp);
+		}
 	}
 
 	/* switch to task */

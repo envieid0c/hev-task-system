@@ -148,6 +148,7 @@ signal_handler (int signo, siginfo_t *info, void *context)
 		ctx->current_task->stack_pages[page_index] = page;
 	}
 
+	ctx->current_task->recently_stack_page = page;
 	hev_task_stack_page_map (page, page_addr);
 }
 

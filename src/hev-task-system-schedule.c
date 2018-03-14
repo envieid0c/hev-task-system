@@ -66,8 +66,11 @@ hev_task_system_schedule (HevTaskYieldType type)
 	/* pick a task */
 	hev_task_system_pick_current_task (ctx);
 
-	if (ctx->current_task->stack_pages)
+	if ((ctx->prev_task != ctx->current_task) && ctx->current_task->stack_pages)
 		hev_task_system_remap_current_task_rsp (ctx);
+
+	/* update previous task */
+	ctx->prev_task = ctx->current_task;
 
 	/* switch to task */
 	longjmp (ctx->current_task->context, 1);

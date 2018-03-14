@@ -136,7 +136,7 @@ signal_handler (int signo, siginfo_t *info, void *context)
 		default_signal_handler (signo, info, context);
 
 	stack = ctx->current_task->stack;
-	stack_top = stack + ctx->stack_size;
+	stack_top = stack + ctx->shared_stack_size;
 	if ((info->si_addr < stack) || (info->si_addr >= stack_top))
 		default_signal_handler (signo, info, context);
 

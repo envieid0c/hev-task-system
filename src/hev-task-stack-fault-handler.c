@@ -127,20 +127,23 @@ signal_handler (int signo, siginfo_t *info, void *context)
 	HevTaskSystemContext *ctx;
 	HevTaskStackPage *page;
 	void *page_addr;
-	void *stack_top;
+	void *stack, *stack_top;
 	unsigned int page_index, page_size;
 	uintptr_t page_mask;
 
 	ctx = hev_task_system_get_context ();
-	stack_top = ctx->stack + ctx->stack_size;
+	if (!ctx->current_task)
+		default_signal_handler (signo, info, context);
 
-	if ((info->si_addr < ctx->stack) || (info->si_addr >= stack_top))
+	stack = ctx->current_task->stack;
+	stack_top = stack + ctx->stack_size;
+	if ((info->si_addr < stack) || (info->si_addr >= stack_top))
 		default_signal_handler (signo, info, context);
 
 	page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
 	page_mask = (uintptr_t) page_size - 1;
 	page_addr = (void *) ((uintptr_t) info->si_addr & ~page_mask);
-	page_index = (page_addr - ctx->stack) / page_size;
+	page_index = (page_addr - stack) / page_size;
 	page = ctx->current_task->stack_pages[page_index];
 
 	if (!page) {

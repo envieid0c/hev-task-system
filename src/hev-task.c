@@ -39,12 +39,11 @@ hev_task_new (int stack_size)
 		unsigned int page_size, page_count;
 
 		ctx = hev_task_system_get_context ();
-		stack_size = hev_task_system_get_shared_stack_size ();
 		page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
-		page_count = stack_size / page_size;
+		page_count = ctx->shared_stack_size / page_size;
 
-		self->stack = hev_task_system_get_shared_stack ();
-		self->stack_top = self->stack + stack_size;
+		self->stack = ctx->shared_stack;
+		self->stack_top = self->stack + ctx->shared_stack_size;
 		self->stack_pages = hev_malloc0 (sizeof (HevTaskStackPage *) * page_count);
 		if (!self->stack_pages) {
 			hev_free (self);
@@ -85,12 +84,11 @@ hev_task_unref (HevTask *self)
 
 	if (self->stack_pages) {
 		HevTaskSystemContext *ctx;
-		unsigned int i, stack_size, page_size, page_count;
+		unsigned int i, page_size, page_count;
 
 		ctx = hev_task_system_get_context ();
-		stack_size = hev_task_system_get_shared_stack_size ();
 		page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
-		page_count = stack_size / page_size;
+		page_count = ctx->shared_stack_size / page_size;
 
 		for (i=0; i<page_count; i++) {
 			HevTaskStackPage *page = self->stack_pages[i];

@@ -86,11 +86,11 @@ hev_task_system_init (void)
 	if (-1 == fcntl (default_context->epoll_fd, F_SETFD, flags))
 		return -6;
 
-	default_context->stack = mmap (NULL, HEV_TASK_STACK_SIZE, PROT_NONE,
+	default_context->shared_stack = mmap (NULL, HEV_TASK_STACK_SIZE, PROT_NONE,
 				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	if (default_context->stack == MAP_FAILED)
+	if (default_context->shared_stack == MAP_FAILED)
 		return -7;
-	default_context->stack_size = HEV_TASK_STACK_SIZE;
+	default_context->shared_stack_size = HEV_TASK_STACK_SIZE;
 
 	default_context->stack_allocator = hev_task_stack_allocator_new ();
 	if (!default_context->stack_allocator)
@@ -115,7 +115,7 @@ hev_task_system_fini (void)
 	close (default_context->epoll_fd);
 	hev_task_stack_fault_handler_fini ();
 	hev_task_stack_allocator_destroy (default_context->stack_allocator);
-	munmap (default_context->stack, default_context->stack_size);
+	munmap (default_context->shared_stack, default_context->shared_stack_size);
 	hev_task_timer_manager_destroy (default_context->timer_manager);
 	hev_free (default_context);
 
@@ -149,15 +149,15 @@ hev_task_system_get_context (void)
 }
 
 void *
-hev_task_system_get_stack (void)
+hev_task_system_get_shared_stack (void)
 {
-	return hev_task_system_get_context ()->stack;
+	return hev_task_system_get_context ()->shared_stack;
 }
 
 unsigned int
-hev_task_system_get_stack_size (void)
+hev_task_system_get_shared_stack_size (void)
 {
-	return hev_task_system_get_context ()->stack_size;
+	return hev_task_system_get_context ()->shared_stack_size;
 }
 
 #ifdef ENABLE_PTHREAD

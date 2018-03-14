@@ -140,7 +140,7 @@ hev_task_system_kill_current_task (void)
 static inline void
 hev_task_system_clear_shared_stack (HevTaskSystemContext *ctx)
 {
-	mprotect (ctx->stack, ctx->stack_size, PROT_NONE);
+	mprotect (ctx->shared_stack, ctx->shared_stack_size, PROT_NONE);
 }
 
 static inline void

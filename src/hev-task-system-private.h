@@ -32,8 +32,8 @@ struct _HevTaskSystemContext
 	HevTaskTimerManager *timer_manager;
 	HevTaskStackAllocator *stack_allocator;
 
-	void *stack;
-	unsigned int stack_size;
+	void *shared_stack;
+	unsigned int shared_stack_size;
 
 	HevTask *new_task;
 	HevTask *prev_task;
@@ -51,8 +51,8 @@ void hev_task_system_kill_current_task (void);
 
 HevTaskSystemContext * hev_task_system_get_context (void);
 
-void * hev_task_system_get_stack (void);
-unsigned int hev_task_system_get_stack_size (void);
+void * hev_task_system_get_shared_stack (void);
+unsigned int hev_task_system_get_shared_stack_size (void);
 
 #endif /* __HEV_TASK_SYSTEM_PRIVATE_H__ */
 

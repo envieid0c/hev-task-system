@@ -36,6 +36,7 @@ struct _HevTask
 	void *stack;
 	HevTaskStackPage **stack_pages;
 	HevTaskStackPage *recently_stack_page;
+	unsigned int shared_stack_index;
 
 	int ref_count;
 	int priority;

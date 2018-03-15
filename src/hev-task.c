@@ -42,7 +42,8 @@ hev_task_new (int stack_size)
 		page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
 		page_count = ctx->shared_stack_size / page_size;
 
-		self->stack = ctx->shared_stack;
+		self->ssi = hev_task_system_get_shared_stack_index ();
+		self->stack = ctx->shared_stacks[self->ssi];
 		self->stack_top = self->stack + ctx->shared_stack_size;
 		self->stack_pages = hev_malloc0 (sizeof (HevTaskStackPage *) * page_count);
 		if (!self->stack_pages) {

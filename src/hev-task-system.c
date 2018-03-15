@@ -36,7 +36,7 @@ static HevTaskSystemContext *default_context;
 int
 hev_task_system_init (void)
 {
-	int flags;
+	int i, flags;
 
 #ifdef ENABLE_MEMALLOC_SLICE
 	HevMemoryAllocator *allocator;
@@ -86,10 +86,12 @@ hev_task_system_init (void)
 	if (-1 == fcntl (default_context->epoll_fd, F_SETFD, flags))
 		return -6;
 
-	default_context->shared_stack = mmap (NULL, HEV_TASK_STACK_SIZE, PROT_NONE,
-				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	if (default_context->shared_stack == MAP_FAILED)
-		return -7;
+	for (i=0; i<HEV_TASK_SHARED_STACK_COUNT; i++) {
+		default_context->shared_stacks[i] = mmap (NULL, HEV_TASK_STACK_SIZE,
+					PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		if (default_context->shared_stacks[i] == MAP_FAILED)
+			return -7;
+	}
 	default_context->shared_stack_size = HEV_TASK_STACK_SIZE;
 
 	default_context->stack_allocator = hev_task_stack_allocator_new ();
@@ -105,6 +107,8 @@ hev_task_system_init (void)
 void
 hev_task_system_fini (void)
 {
+	int i;
+
 #ifdef ENABLE_MEMALLOC_SLICE
 	HevMemoryAllocator *allocator;
 #endif
@@ -115,7 +119,10 @@ hev_task_system_fini (void)
 	close (default_context->epoll_fd);
 	hev_task_stack_fault_handler_fini ();
 	hev_task_stack_allocator_destroy (default_context->stack_allocator);
-	munmap (default_context->shared_stack, default_context->shared_stack_size);
+	for (i=0; i<HEV_TASK_SHARED_STACK_COUNT; i++) {
+		munmap (default_context->shared_stacks[i],
+					default_context->shared_stack_size);
+	}
 	hev_task_timer_manager_destroy (default_context->timer_manager);
 	hev_free (default_context);
 
@@ -149,15 +156,26 @@ hev_task_system_get_context (void)
 }
 
 void *
-hev_task_system_get_shared_stack (void)
+hev_task_system_get_shared_stack (unsigned int i)
 {
-	return hev_task_system_get_context ()->shared_stack;
+	return hev_task_system_get_context ()->shared_stacks[i];
 }
 
 unsigned int
 hev_task_system_get_shared_stack_size (void)
 {
 	return hev_task_system_get_context ()->shared_stack_size;
+}
+
+unsigned int
+hev_task_system_get_shared_stack_index (void)
+{
+	HevTaskSystemContext *ctx = hev_task_system_get_context ();
+	unsigned int ssi = ctx->ssi;
+
+	ctx->ssi = (ssi + 1) % HEV_TASK_SHARED_STACK_COUNT;
+
+	return ssi;
 }
 
 #ifdef ENABLE_PTHREAD

@@ -66,11 +66,12 @@ hev_task_system_schedule (HevTaskYieldType type)
 	/* pick a task */
 	hev_task_system_pick_current_task (ctx);
 
-	if ((ctx->prev_task != ctx->current_task) && ctx->current_task->stack_pages)
+	if (ctx->current_task->stack_pages &&
+			(ctx->sst[ctx->current_task->ssi] != ctx->current_task))
+	{
 		hev_task_system_remap_current_task_rsp (ctx);
-
-	/* update previous task */
-	ctx->prev_task = ctx->current_task;
+		ctx->sst[ctx->current_task->ssi] = ctx->current_task;
+	}
 
 	/* switch to task */
 	longjmp (ctx->current_task->context, 1);
@@ -118,9 +119,8 @@ hev_task_system_run_new_task (HevTask *task)
 	hev_task_execute (task, hev_task_executer);
 
 	if (task->stack_pages) {
-		ctx->current_task = current_task;
-
 		hev_task_system_clear_shared_stack (ctx);
+		ctx->current_task = current_task;
 	}
 
 	hev_task_system_append_task (ctx, task);
@@ -140,7 +140,7 @@ hev_task_system_kill_current_task (void)
 static inline void
 hev_task_system_clear_shared_stack (HevTaskSystemContext *ctx)
 {
-	mprotect (ctx->shared_stack, ctx->shared_stack_size, PROT_NONE);
+	mprotect (ctx->current_task->stack, ctx->shared_stack_size, PROT_NONE);
 }
 
 static inline void
@@ -177,13 +177,16 @@ hev_task_system_run_new_task_with_context (HevTaskSystemContext *ctx)
 	HevTask *task = ctx->new_task;
 	HevTask *current_task = ctx->current_task;
 
+	ctx->current_task = task;
 	hev_task_system_clear_shared_stack (ctx);
 
-	ctx->current_task = task;
 	hev_task_execute (task, hev_task_executer);
-	ctx->current_task = current_task;
 
-	hev_task_system_remap_current_task_rsp (ctx);
+	ctx->current_task = current_task;
+	if (current_task->stack_pages && (task->ssi == current_task->ssi))
+		hev_task_system_remap_current_task_rsp (ctx);
+	else
+		ctx->sst[task->ssi] = task;
 
 	hev_task_system_append_task (ctx, task);
 	ctx->total_task_count ++;

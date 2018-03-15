@@ -27,10 +27,11 @@ struct _HevTaskStackFaultHandlerStackInfo
 	stack_t old;
 };
 
-static void signal_handler (int signo, siginfo_t *info, void *context);
+static void sigsegv_default_handler (int signo, siginfo_t *info, void *context);
+static void sigsegv_shared_stack_handler (int signo, siginfo_t *info, void *context);
 
 static int initialized;
-static void (*default_signal_handler) (int, siginfo_t *, void *);
+static void (*default_sigsegv_handler) (int, siginfo_t *, void *);
 
 #ifdef ENABLE_PTHREAD
 static pthread_key_t key;
@@ -79,11 +80,14 @@ hev_task_stack_fault_handler_init (void)
 
 	sigemptyset (&sa.sa_mask);
 	sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
-	sa.sa_sigaction = signal_handler;
+	sa.sa_sigaction = sigsegv_shared_stack_handler;
 
 	if (sigaction (SIGSEGV, &sa, &osa) == -1)
 		goto quit;
-	default_signal_handler = osa.sa_sigaction;
+	default_sigsegv_handler = osa.sa_sigaction;
+
+	if (!default_sigsegv_handler)
+		default_sigsegv_handler = sigsegv_default_handler;
 
 	retval = 0;
 	initialized = 1;
@@ -122,7 +126,14 @@ pthread_key_creator (void)
 #endif
 
 static void
-signal_handler (int signo, siginfo_t *info, void *context)
+sigsegv_default_handler (int signo, siginfo_t *info, void *context)
+{
+	signal (SIGSEGV, SIG_DFL);
+	raise (SIGSEGV);
+}
+
+static void
+sigsegv_shared_stack_handler (int signo, siginfo_t *info, void *context)
 {
 	HevTaskSystemContext *ctx;
 	HevTaskStackPage *page;
@@ -133,12 +144,12 @@ signal_handler (int signo, siginfo_t *info, void *context)
 
 	ctx = hev_task_system_get_context ();
 	if (!ctx->current_task)
-		default_signal_handler (signo, info, context);
+		default_sigsegv_handler (signo, info, context);
 
 	stack = ctx->current_task->stack;
 	stack_top = stack + ctx->shared_stack_size;
 	if ((info->si_addr < stack) || (info->si_addr >= stack_top))
-		default_signal_handler (signo, info, context);
+		default_sigsegv_handler (signo, info, context);
 
 	page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
 	page_mask = (uintptr_t) page_size - 1;

@@ -31,6 +31,7 @@ struct _HevTaskStackAllocator
 {
 	int mem_fd;
 	unsigned int page_size;
+	unsigned int page_shift;
 
 	off_t allocated_offset;
 	HevTaskStackPage *free_pages;
@@ -40,6 +41,7 @@ HevTaskStackAllocator *
 hev_task_stack_allocator_new (void)
 {
 	HevTaskStackAllocator *self;
+	unsigned int page_size;
 
 	self = hev_malloc0 (sizeof (HevTaskStackAllocator));
 	if (!self)
@@ -53,6 +55,9 @@ hev_task_stack_allocator_new (void)
 	}
 
 	self->page_size = sysconf (_SC_PAGESIZE);
+
+	for (page_size=self->page_size; page_size>1; self->page_shift++)
+		page_size >>= 1;
 
 	return self;
 }
@@ -76,6 +81,12 @@ unsigned int
 hev_task_stack_allocator_get_page_size (HevTaskStackAllocator *self)
 {
 	return self->page_size;
+}
+
+unsigned int
+hev_task_stack_allocator_get_page_shift (HevTaskStackAllocator *self)
+{
+	return self->page_shift;
 }
 
 HevTaskStackPage *

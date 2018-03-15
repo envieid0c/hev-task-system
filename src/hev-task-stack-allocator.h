@@ -17,6 +17,7 @@ HevTaskStackAllocator * hev_task_stack_allocator_new (void);
 void hev_task_stack_allocator_destroy (HevTaskStackAllocator *self);
 
 unsigned int hev_task_stack_allocator_get_page_size (HevTaskStackAllocator *self);
+unsigned int hev_task_stack_allocator_get_page_shift (HevTaskStackAllocator *self);
 
 HevTaskStackPage * hev_task_stack_allocator_alloc (HevTaskStackAllocator *self);
 void hev_task_stack_allocator_free (HevTaskStackAllocator *self, HevTaskStackPage *page);

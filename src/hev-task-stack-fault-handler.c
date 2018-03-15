@@ -139,8 +139,7 @@ sigsegv_shared_stack_handler (int signo, siginfo_t *info, void *context)
 	HevTaskStackPage *page;
 	void *page_addr;
 	void *stack, *stack_top;
-	unsigned int page_index, page_size;
-	uintptr_t page_mask;
+	unsigned int page_shift, page_index;
 
 	ctx = hev_task_system_get_context ();
 	if (!ctx->current_task)
@@ -151,10 +150,9 @@ sigsegv_shared_stack_handler (int signo, siginfo_t *info, void *context)
 	if ((info->si_addr < stack) || (info->si_addr >= stack_top))
 		default_sigsegv_handler (signo, info, context);
 
-	page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
-	page_mask = (uintptr_t) page_size - 1;
-	page_addr = (void *) ((uintptr_t) info->si_addr & ~page_mask);
-	page_index = (page_addr - stack) / page_size;
+	page_shift = hev_task_stack_allocator_get_page_shift (ctx->stack_allocator);
+	page_addr = (void *) (((uintptr_t) info->si_addr >> page_shift) << page_shift);
+	page_index = (page_addr - stack) >> page_shift;
 	page = ctx->current_task->stack_pages[page_index];
 
 	if (!page) {

@@ -37,6 +37,26 @@ struct _HevTaskStackAllocator
 	HevTaskStackPage *free_pages;
 };
 
+#ifdef HEV_TASK_USE_SYS_MEMFD
+# include <sys/memfd.h>
+#else
+# include <sys/syscall.h>
+
+# define MFD_CLOEXEC 1U
+
+static int
+memfd_create (const char *name, unsigned int flags)
+{
+	return syscall (__NR_memfd_create, name, flags);
+}
+#endif
+
+static int
+memfd_tmpfile (const char *path)
+{
+	return open (path, O_TMPFILE | O_RDWR | O_CLOEXEC, S_IRUSR | S_IWUSR);
+}
+
 HevTaskStackAllocator *
 hev_task_stack_allocator_new (void)
 {
@@ -47,11 +67,19 @@ hev_task_stack_allocator_new (void)
 	if (!self)
 		return NULL;
 
-	self->mem_fd = open ("/tmp", O_TMPFILE | O_RDWR | O_CLOEXEC,
-				S_IRUSR | S_IWUSR);
+	self->mem_fd = memfd_create ("shared-stack", MFD_CLOEXEC);
 	if (-1 == self->mem_fd) {
-		hev_free (self);
-		return NULL;
+		self->mem_fd = memfd_tmpfile ("/dev/shm");
+		if (-1 == self->mem_fd) {
+			self->mem_fd = memfd_tmpfile ("/tmp");
+			if (-1 == self->mem_fd) {
+				self->mem_fd = memfd_tmpfile (".");
+				if (-1 == self->mem_fd) {
+					hev_free (self);
+					return NULL;
+				}
+			}
+		}
 	}
 
 	self->page_size = sysconf (_SC_PAGESIZE);

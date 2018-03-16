@@ -47,7 +47,7 @@ hev_task_stack_allocator_new (void)
 	if (!self)
 		return NULL;
 
-	self->mem_fd = open ("/tmp", O_TMPFILE | O_RDWR,
+	self->mem_fd = open ("/tmp", O_TMPFILE | O_RDWR | O_CLOEXEC,
 				S_IRUSR | S_IWUSR);
 	if (-1 == self->mem_fd) {
 		hev_free (self);

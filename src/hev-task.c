@@ -22,10 +22,16 @@
 #define ALIGN_DOWN(addr, align) \
 	((addr) & ~((typeof (addr)) align - 1))
 
+static int hev_task_new_shared_stack (HevTask *self);
+static void hev_task_free_shared_stack (HevTask *self);
+static int hev_task_new_private_stack (HevTask *self, unsigned int size);
+static void hev_task_free_private_stack (HevTask *self);
+
 HevTask *
 hev_task_new (int stack_size)
 {
 	HevTask *self;
+	int ret;
 
 	self = hev_malloc0 (sizeof (HevTask));
 	if (!self)
@@ -34,33 +40,14 @@ hev_task_new (int stack_size)
 	self->ref_count = 1;
 	self->next_priority = HEV_TASK_PRIORITY_LOW;
 
-	if (stack_size == -1) {
-		HevTaskSystemContext *ctx;
-		unsigned int page_size, page_count;
+	if (stack_size == -1)
+		ret = hev_task_new_shared_stack (self);
+	else
+		ret = hev_task_new_private_stack (self, stack_size);
 
-		ctx = hev_task_system_get_context ();
-		page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
-		page_count = ctx->shared_stack_size / page_size;
-
-		self->ssi = hev_task_system_get_shared_stack_index ();
-		self->stack = ctx->shared_stacks[self->ssi];
-		self->stack_top = self->stack + ctx->shared_stack_size;
-		self->stack_pages = hev_malloc0 (sizeof (HevTaskStackPage *) * page_count);
-		if (!self->stack_pages) {
-			hev_free (self);
-			return NULL;
-		}
-	} else {
-		uintptr_t stack_addr;
-
-		self->stack = hev_malloc0 (stack_size);
-		if (!self->stack) {
-			hev_free (self);
-			return NULL;
-		}
-
-		stack_addr = (uintptr_t) (self->stack + stack_size);
-		self->stack_top = (void *) ALIGN_DOWN (stack_addr, 16);
+	if (ret == -1) {
+		hev_free (self);
+		return NULL;
 	}
 
 	self->sched_entity.task = self;
@@ -83,26 +70,10 @@ hev_task_unref (HevTask *self)
 	if (self->ref_count)
 		return;
 
-	if (self->stack_pages) {
-		HevTaskSystemContext *ctx;
-		unsigned int i, page_size, page_count;
-
-		ctx = hev_task_system_get_context ();
-		page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
-		page_count = ctx->shared_stack_size / page_size;
-
-		for (i=0; i<page_count; i++) {
-			HevTaskStackPage *page = self->stack_pages[i];
-
-			if (!page)
-				continue;
-
-			hev_task_stack_allocator_free (ctx->stack_allocator, page);
-		}
-		hev_free (self->stack_pages);
-	} else {
-		hev_free (self->stack);
-	}
+	if (self->stack_pages)
+		hev_task_free_shared_stack (self);
+	else
+		hev_task_free_private_stack (self);
 	hev_free (self);
 }
 
@@ -261,5 +232,68 @@ void
 hev_task_exit (void)
 {
 	hev_task_system_kill_current_task ();
+}
+
+static int
+hev_task_new_shared_stack (HevTask *self)
+{
+	HevTaskSystemContext *ctx;
+	unsigned int page_size, page_count;
+
+	ctx = hev_task_system_get_context ();
+	page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
+	page_count = ctx->shared_stack_size / page_size;
+
+	self->ssi = hev_task_system_get_shared_stack_index ();
+	self->stack = ctx->shared_stacks[self->ssi];
+	self->stack_top = self->stack + ctx->shared_stack_size;
+	self->stack_pages = hev_malloc0 (sizeof (HevTaskStackPage *) * page_count);
+	if (!self->stack_pages)
+		return -1;
+
+	return 0;
+}
+
+static void
+hev_task_free_shared_stack (HevTask *self)
+{
+	HevTaskSystemContext *ctx;
+	unsigned int i, page_size, page_count;
+
+	ctx = hev_task_system_get_context ();
+	page_size = hev_task_stack_allocator_get_page_size (ctx->stack_allocator);
+	page_count = ctx->shared_stack_size / page_size;
+
+	for (i=0; i<page_count; i++) {
+		HevTaskStackPage *page = self->stack_pages[i];
+
+		if (!page)
+			continue;
+
+		hev_task_stack_allocator_free (ctx->stack_allocator, page);
+	}
+
+	hev_free (self->stack_pages);
+}
+
+static int
+hev_task_new_private_stack (HevTask *self, unsigned int size)
+{
+	uintptr_t stack_addr;
+
+	self->stack = hev_malloc0 (size);
+	if (!self->stack)
+		return -1;
+
+	stack_addr = (uintptr_t) (self->stack + size);
+	self->stack_top = (void *) ALIGN_DOWN (stack_addr, 16);
+
+	return 0;
+}
+
+static void
+hev_task_free_private_stack (HevTask *self)
+{
+	hev_free (self->stack);
 }
 

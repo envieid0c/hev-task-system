@@ -57,7 +57,7 @@ enum _HevTaskYieldType
  * hev_task_new:
  * @stack_size: stack size for task
  *
- * Creates a new task. If @stack_size = -1, the default stack size
+ * Creates a new task. If @stack_size = -1, the shared stack
  * will be used.
  *
  * Returns: a new #HevTask.

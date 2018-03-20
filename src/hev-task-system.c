@@ -13,7 +13,7 @@
 #include <sys/mman.h>
 #include <sys/epoll.h>
 
-#define HEV_TASK_STACK_SIZE	(8 * 1024 * 1024)
+#define TASK_SHARED_STACK_SIZE	CONFIG_TASK_SHARED_STACK_SIZE
 
 #ifdef ENABLE_PTHREAD
 # include <pthread.h>
@@ -87,12 +87,12 @@ hev_task_system_init (void)
 		return -6;
 
 	for (i=0; i<HEV_TASK_SHARED_STACK_COUNT; i++) {
-		default_context->shared_stacks[i] = mmap (NULL, HEV_TASK_STACK_SIZE,
+		default_context->shared_stacks[i] = mmap (NULL, TASK_SHARED_STACK_SIZE,
 					PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 		if (default_context->shared_stacks[i] == MAP_FAILED)
 			return -7;
 	}
-	default_context->shared_stack_size = HEV_TASK_STACK_SIZE;
+	default_context->shared_stack_size = TASK_SHARED_STACK_SIZE;
 
 	default_context->stack_allocator = hev_task_stack_allocator_new ();
 	if (!default_context->stack_allocator)

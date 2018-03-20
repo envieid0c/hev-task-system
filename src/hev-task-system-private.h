@@ -18,7 +18,7 @@
 #include "hev-task-timer-manager.h"
 #include "hev-task-stack-allocator.h"
 
-#define HEV_TASK_SHARED_STACK_COUNT	(8)
+#define TASK_SHARED_STACK_COUNT	CONFIG_TASK_SHARED_STACK_COUNT
 #define HEV_TASK_RUN_SCHEDULER	HEV_TASK_YIELD_COUNT
 #define PRIORITY_COUNT (HEV_TASK_PRIORITY_MAX - HEV_TASK_PRIORITY_MIN + 1)
 
@@ -36,9 +36,9 @@ struct _HevTaskSystemContext
 	unsigned int shared_stack_size;
 #define ssi shared_stack_index
 	unsigned int shared_stack_index;
-	void *shared_stacks[HEV_TASK_SHARED_STACK_COUNT];
+	void *shared_stacks[TASK_SHARED_STACK_COUNT];
 #define sst shared_stack_tasks
-	HevTask *shared_stack_tasks[HEV_TASK_SHARED_STACK_COUNT];
+	HevTask *shared_stack_tasks[TASK_SHARED_STACK_COUNT];
 
 	HevTask *new_task;
 	HevTask *current_task;

@@ -86,7 +86,7 @@ hev_task_system_init (void)
 	if (-1 == fcntl (default_context->epoll_fd, F_SETFD, flags))
 		return -6;
 
-	for (i=0; i<HEV_TASK_SHARED_STACK_COUNT; i++) {
+	for (i=0; i<TASK_SHARED_STACK_COUNT; i++) {
 		default_context->shared_stacks[i] = mmap (NULL, TASK_SHARED_STACK_SIZE,
 					PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 		if (default_context->shared_stacks[i] == MAP_FAILED)
@@ -119,7 +119,7 @@ hev_task_system_fini (void)
 	close (default_context->epoll_fd);
 	hev_task_stack_fault_handler_fini ();
 	hev_task_stack_allocator_destroy (default_context->stack_allocator);
-	for (i=0; i<HEV_TASK_SHARED_STACK_COUNT; i++) {
+	for (i=0; i<TASK_SHARED_STACK_COUNT; i++) {
 		munmap (default_context->shared_stacks[i],
 					default_context->shared_stack_size);
 	}
@@ -173,7 +173,7 @@ hev_task_system_get_shared_stack_index (void)
 	HevTaskSystemContext *ctx = hev_task_system_get_context ();
 	unsigned int ssi = ctx->ssi;
 
-	ctx->ssi = (ssi + 1) % HEV_TASK_SHARED_STACK_COUNT;
+	ctx->ssi = (ssi + 1) % TASK_SHARED_STACK_COUNT;
 
 	return ssi;
 }

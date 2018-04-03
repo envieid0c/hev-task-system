@@ -158,6 +158,8 @@ sigsegv_shared_stack_handler (int signo, siginfo_t *info, void *context)
 	if (!page) {
 		page = hev_task_stack_allocator_alloc (ctx->stack_allocator);
 		ctx->current_task->stack_pages[page_index] = page;
+		if (page_index && page_index < ctx->current_task->lowest_stack_frame_index)
+			ctx->current_task->lowest_stack_frame_index = page_index;
 	}
 
 	ctx->current_task->recently_stack_page = page;

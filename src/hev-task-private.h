@@ -34,9 +34,11 @@ struct _HevTask
 	HevTaskSchedEntity sched_entity;
 
 	void *stack;
+	void *current_stack_frame_addr;
 	HevTaskStackPage **stack_pages;
 	HevTaskStackPage *recently_stack_page;
 	unsigned int shared_stack_index;
+	unsigned int lowest_stack_frame_index;
 
 	int ref_count;
 	int priority;

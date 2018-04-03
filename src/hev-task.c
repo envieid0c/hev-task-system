@@ -247,6 +247,7 @@ hev_task_new_shared_stack (HevTask *self)
 	self->ssi = hev_task_system_get_shared_stack_index ();
 	self->stack = ctx->shared_stacks[self->ssi];
 	self->stack_top = self->stack + ctx->shared_stack_size;
+	self->lowest_stack_frame_index = -1;
 	self->stack_pages = hev_malloc0 (sizeof (HevTaskStackPage *) * page_count);
 	if (!self->stack_pages)
 		return -1;

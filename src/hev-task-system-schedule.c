@@ -82,8 +82,10 @@ save_task:
 	if (setjmp (ctx->current_task->context))
 		return; /* resume to task context */
 
-	if (type == HEV_TASK_WAITIO)
+	if (type == HEV_TASK_WAITIO) {
+		ctx->current_task->current_stack_frame_addr = &ctx;
 		longjmp (ctx->kernel_context, 4);
+	}
 
 	/* resume to kernel context */
 	longjmp (ctx->kernel_context, 1);
@@ -223,6 +225,42 @@ hev_task_system_append_task (HevTaskSystemContext *ctx, HevTask *task)
 }
 
 static inline void
+hev_task_system_recycle_current_task_unused_stack (HevTaskSystemContext *ctx)
+{
+	HevTask *task = ctx->current_task;
+	int i;
+	unsigned int csfn, lsfn, page_shift;
+
+	if (!task->stack_pages)
+		return;
+
+	page_shift = hev_task_stack_allocator_get_page_shift (ctx->stack_allocator);
+	csfn = (task->current_stack_frame_addr - task->stack) >> page_shift;
+	lsfn = task->lowest_stack_frame_index;
+	task->lowest_stack_frame_index = csfn;
+
+	for (i=csfn-1; lsfn<=i; i--) {
+		HevTaskStackPage *page = task->stack_pages[i];
+
+		if (!page)
+			continue;
+
+		if (page == task->recently_stack_page)
+			task->recently_stack_page = NULL;
+
+		task->stack_pages[i] = NULL;
+		hev_task_stack_allocator_free (ctx->stack_allocator, page);
+	}
+
+	if (lsfn < csfn) {
+		void *start = task->stack + ((unsigned long) lsfn << page_shift);
+		unsigned long size = (csfn - lsfn) << page_shift;
+
+		mprotect (start, size, PROT_NONE);
+	}
+}
+
+static inline void
 hev_task_system_remove_current_task (HevTaskSystemContext *ctx, HevTaskState state)
 {
 	HevTask *task = ctx->current_task;
@@ -230,6 +268,8 @@ hev_task_system_remove_current_task (HevTaskSystemContext *ctx, HevTaskState sta
 	HevTask **running_tasks_tail;
 
 	task->state = state;
+	if (HEV_TASK_WAITING == state)
+		hev_task_system_recycle_current_task_unused_stack (ctx);
 
 	running_tasks = &ctx->running_tasks[task->priority];
 	running_tasks_tail = &ctx->running_tasks_tail[task->priority];
